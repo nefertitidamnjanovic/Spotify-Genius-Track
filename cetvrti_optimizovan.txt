@@ -1,0 +1,29 @@
+//optimizovano:koji albumi imaju najveću kumulativnu popularnost pesama? 
+db.spotify_albums.createIndex({ id: 1 });
+db.spotify_tracks.createIndex({ album_id: 1 });
+
+db.spotify_tracks.createIndex({ "album_tracks.popularity": 1 });
+
+db.spotify_albums.aggregate([
+    {
+        $lookup: {
+            from: "spotify_tracks",
+            localField: "id",
+            foreignField: "album_id",
+            as: "album_tracks"
+        }
+    },
+    {
+        $unwind: "$album_tracks"
+    },
+    {
+        $group: {
+            _id: "$id",
+            album_name: { $first: "$name" },
+            total_popularity: { $sum: "$album_tracks.popularity" }
+        }
+    },
+    {
+        $sort: { total_popularity: -1 }
+    }
+]);

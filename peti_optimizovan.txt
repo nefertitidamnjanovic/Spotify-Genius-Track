@@ -1,0 +1,83 @@
+//OPTIMIZOVANO:Koje su lirske karakteristike najpopularnijih pesama?
+
+db.spotify_tracks.createIndex({ id: 1 });
+
+db.lyrics_features.createIndex({ track_id: 1 });
+
+db.spotify_tracks.aggregate([
+    { $match: { popularity: { $gt: 90 } } },
+
+    {
+        $lookup: {
+            from: "lyrics_features",
+            localField: "id",
+            foreignField: "track_id",
+            as: "lyrics_data"
+        }
+    },
+
+    {
+        $match: {
+            "lyrics_data": { $exists: true, $not: { $size: 0 } }
+        }
+    },
+
+    {
+        $unwind: "$lyrics_data"
+    },
+    {
+        $group: {
+            _id: {
+                track_id: "$id",
+                track_name: "$name",
+                artists: "$artists_id"
+            },
+            mean_syllables_word: { $avg: "$lyrics_data.mean_syllables_word" },
+            mean_words_sentence: { $avg: "$lyrics_data.mean_words_sentence" },
+            n_sentences: { $avg: "$lyrics_data.n_sentences" },
+            n_words: { $avg: "$lyrics_data.n_words" },
+            sentence_similarity: { $avg: "$lyrics_data.sentence_similarity" },
+            vocabulary_wealth: { $avg: "$lyrics_data.vocabulary_wealth" }
+        }
+    },
+
+    {
+        $project: {
+            _id: 0,
+            track_id: "$_id.track_id",
+            track_name: "$_id.track_name",
+            artists: "$_id.artists",
+            mean_syllables_word: 1,
+            mean_words_sentence: 1,
+            n_sentences: 1,
+            n_words: 1,
+            sentence_similarity: 1,
+            vocabulary_wealth: 1
+        }
+    },
+
+    {
+        $bucket: {
+            groupBy: "$mean_syllables_word",
+            boundaries: [1, 2, 3, 4, 5],
+            default: "Other",
+            output: {
+                tracks: { $push: {
+                    track_id: "$track_id",
+                    track_name: "$track_name",
+                    artists: "$artists",
+                    mean_syllables_word: "$mean_syllables_word",
+                    mean_words_sentence: "$mean_words_sentence",
+                    n_sentences: "$n_sentences",
+                    n_words: "$n_words",
+                    sentence_similarity: "$sentence_similarity",
+                    vocabulary_wealth: "$vocabulary_wealth"
+                } }
+            }
+        }
+    },
+    { $unwind: "$tracks" },
+
+    { $sort: { "tracks.mean_syllables_word": -1 } }
+]);
+

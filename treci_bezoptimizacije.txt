@@ -1,0 +1,37 @@
+//Kako akustičnost pesme utiče na njenu popularnost u različitim tržištima?
+db.spotify_tracks.aggregate([
+    {
+        $unwind: "$available_markets"
+    },
+    {
+        $group: {
+            _id: {
+                market: "$available_markets",
+                acousticness_range: {
+                    $switch: {
+                        branches: [
+                            { case: { $lte: ["$acousticness", 0.2] }, then: "Very Low" },
+                            { case: { $and: [ { $gt: ["$acousticness", 0.2] }, { $lte: ["$acousticness", 0.4] } ] }, then: "Low" },
+                            { case: { $and: [ { $gt: ["$acousticness", 0.4] }, { $lte: ["$acousticness", 0.6] } ] }, then: "Moderate" },
+                            { case: { $and: [ { $gt: ["$acousticness", 0.6] }, { $lte: ["$acousticness", 0.8] } ] }, then: "High" },
+                            { case: { $gt: ["$acousticness", 0.8] }, then: "Very High" }
+                        ],
+                        default: "Unknown"
+                    }
+                }
+            },
+            avgPopularity: { $avg: "$popularity" }
+        }
+    },
+    {
+        $project: {
+            _id: 0,
+            market: "$_id.market",
+            acousticnessRange: "$_id.acousticness_range",
+            avgPopularity: 1
+        }
+    },
+    {
+        $sort: { market: 1, acousticnessRange: 1 }
+    }
+]);

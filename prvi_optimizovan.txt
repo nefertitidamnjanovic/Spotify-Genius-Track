@@ -1,0 +1,56 @@
+//optimizovano Kako popularnost pesme korelira sa audio karakteristikama poput plesnosti, energije i valencei vocabulary wealth?
+
+db.spotify_tracks.createIndex({ id: 1 });
+db.spotify_tracks.createIndex({ popularity: 1, danceability: 1, energy: 1, valence: 1 });
+
+db.lyrics_features.createIndex({ track_id: 1 });
+db.spotify_tracks.aggregate([
+    {
+        $lookup: {
+            from: "lyrics_features",
+            localField: "id",
+            foreignField: "track_id",
+            as: "lyrics_data"
+        }
+    },
+    {
+        $unwind: "$lyrics_data"
+    },
+    {
+        $match: {
+            popularity: { $gte: 0 },
+            danceability: { $exists: true },
+            energy: { $exists: true },
+            valence: { $exists: true },
+            "lyrics_data.vocabulary_wealth": { $exists: true, $ne: null }
+        }
+    },
+    {
+        $bucket: {
+            groupBy: "$popularity",
+            boundaries: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+            default: "Other",
+            output: {
+                avgDanceability: { $avg: "$danceability" },
+                avgEnergy: { $avg: "$energy" },
+                avgValence: { $avg: "$valence" },
+                avgVocabularyWealth: { $avg: "$lyrics_data.vocabulary_wealth" },
+                count: { $sum: 1 }
+            }
+        }
+    },
+    {
+        $project: {
+            _id: 0,
+            popularityRange: "$_id",
+            avgDanceability: 1,
+            avgEnergy: 1,
+            avgValence: 1,
+            avgVocabularyWealth: 1,
+            count: 1
+        }
+    },
+    {
+        $sort: { popularityRange: 1 }
+    }
+]);

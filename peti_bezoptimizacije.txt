@@ -1,0 +1,56 @@
+//Koje su lirske karakteristike najpopularnijih pesama?
+db.spotify_tracks.aggregate([
+    { $match: { popularity: { $gt: 90 } } },
+    {
+        $lookup: {
+            from: "lyrics_features",
+            localField: "id",
+            foreignField: "track_id",
+            as: "lyrics_data"
+        }
+    },
+    {
+        $match: {
+            "lyrics_data": { $exists: true, $not: { $size: 0 } }
+        }
+    },
+
+    {
+        $unwind: "$lyrics_data"
+    },
+    {
+        $group: {
+            _id: {
+                track_id: "$id",
+                track_name: "$name",
+                artists: "$artists_id"
+            },
+            mean_syllables_word: { $avg: "$lyrics_data.mean_syllables_word" },
+            mean_words_sentence: { $avg: "$lyrics_data.mean_words_sentence" },
+            n_sentences: { $avg: "$lyrics_data.n_sentences" },
+            n_words: { $avg: "$lyrics_data.n_words" },
+            sentence_similarity: { $avg: "$lyrics_data.sentence_similarity" },
+            vocabulary_wealth: { $avg: "$lyrics_data.vocabulary_wealth" }
+        }
+    },
+    {
+        $project: {
+            _id: 0,
+            track_id: "$_id.track_id",
+            track_name: "$_id.track_name",
+            artists: "$_id.artists",
+            mean_syllables_word: 1,
+            mean_words_sentence: 1,
+            n_sentences: 1,
+            n_words: 1,
+            sentence_similarity: 1,
+            vocabulary_wealth: 1
+        }
+    },
+    { $sort: { mean_syllables_word: -1 } }
+]);
+
+
+
+
+
